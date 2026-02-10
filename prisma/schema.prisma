@@ -1,0 +1,59 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Campaign {
+  id        String         @id @default(cuid())
+  niche     String
+  location  String
+  createdAt DateTime       @default(now())
+  status    CampaignStatus @default(ACTIVE)
+  leads     Lead[]
+}
+
+model Lead {
+  id           String     @id @default(cuid())
+  campaignId   String
+  businessName String
+  websiteUrl   String
+  email        String?
+  
+  // Audit Results
+  auditScore   Int?
+  screenshot   String?
+  auditSummary String?    @db.Text
+  
+  // Status Tracking
+  status       LeadStatus @default(DISCOVERED)
+  sentAt       DateTime?
+  errorLog     String?    @db.Text
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  campaign     Campaign   @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([status])
+}
+
+enum CampaignStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+}
+
+enum LeadStatus {
+  DISCOVERED
+  SCRAPING
+  ANALYZING
+  EMAILED
+  SKIPPED
+  FAILED
+}
