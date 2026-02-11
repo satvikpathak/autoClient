@@ -42,6 +42,7 @@ export async function GET(
       emailed: campaign.leads.filter((l: LeadWithStatus) => l.status === 'EMAILED').length,
       skipped: campaign.leads.filter((l: LeadWithStatus) => l.status === 'SKIPPED').length,
       failed: campaign.leads.filter((l: LeadWithStatus) => l.status === 'FAILED').length,
+      noWebsite: campaign.leads.filter((l: LeadWithStatus) => l.status === 'NO_WEBSITE').length,
     };
 
     return NextResponse.json({ campaign, stats });
