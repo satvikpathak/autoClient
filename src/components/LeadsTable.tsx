@@ -1,5 +1,7 @@
 'use client';
 
+import { motion } from 'framer-motion';
+import { Mail } from 'lucide-react';
 import {
   Table,
   TableBody,
@@ -30,20 +32,29 @@ interface LeadsTableProps {
 }
 
 const STATUS_STYLES: Record<Lead['status'], { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-  DISCOVERED: { variant: 'outline', className: 'border-gray-500 text-gray-400' },
-  SCRAPING: { variant: 'secondary', className: 'bg-blue-500/20 text-blue-400 status-processing' },
-  ANALYZING: { variant: 'secondary', className: 'bg-yellow-500/20 text-yellow-400 status-processing' },
-  EMAILED: { variant: 'default', className: 'bg-green-500/20 text-green-400 border-green-500/50' },
-  SKIPPED: { variant: 'secondary', className: 'bg-gray-500/20 text-gray-400' },
-  FAILED: { variant: 'destructive', className: 'bg-red-500/20 text-red-400' },
+  DISCOVERED: { variant: 'outline', className: 'border-white/[0.08] text-neutral-500' },
+  SCRAPING: { variant: 'secondary', className: 'bg-white/[0.06] text-neutral-400 status-processing' },
+  ANALYZING: { variant: 'secondary', className: 'bg-white/[0.06] text-neutral-400 status-processing' },
+  EMAILED: { variant: 'default', className: 'bg-white/[0.1] text-white border-white/[0.06]' },
+  SKIPPED: { variant: 'secondary', className: 'bg-white/[0.04] text-neutral-500' },
+  FAILED: { variant: 'secondary', className: 'bg-white/[0.04] text-neutral-500' },
 };
 
-function getScoreColor(score: number | null | undefined): string {
-  if (score === null || score === undefined) return 'text-gray-500';
-  if (score >= 7) return 'text-green-400';
-  if (score >= 4) return 'text-yellow-400';
-  return 'text-red-400';
+function getScoreStyle(score: number | null | undefined): string {
+  if (score === null || score === undefined) return 'text-neutral-600';
+  if (score >= 7) return 'text-white font-bold';
+  if (score >= 4) return 'text-neutral-300';
+  return 'text-neutral-500';
 }
+
+const rowVariants = {
+  hidden: { opacity: 0, y: 8 },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, delay: i * 0.03, ease: [0.16, 1, 0.3, 1] },
+  }),
+};
 
 export function LeadsTable({ leads }: LeadsTableProps) {
   const formatDate = (dateStr: string) => {
@@ -65,37 +76,46 @@ export function LeadsTable({ leads }: LeadsTableProps) {
   };
 
   return (
-    <div className="rounded-lg border border-primary/20 overflow-hidden">
+    <div className="rounded-xl border border-white/[0.06] overflow-hidden">
       <Table>
         <TableHeader>
-          <TableRow className="bg-muted/50 hover:bg-muted/50">
-            <TableHead className="font-semibold">Business</TableHead>
-            <TableHead className="font-semibold">Website</TableHead>
-            <TableHead className="font-semibold text-center">Score</TableHead>
-            <TableHead className="font-semibold">Status</TableHead>
-            <TableHead className="font-semibold">Email</TableHead>
-            <TableHead className="font-semibold text-right">Date</TableHead>
+          <TableRow className="bg-white/[0.02] hover:bg-white/[0.02] border-b border-white/[0.06]">
+            <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider">Business</TableHead>
+            <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider">Website</TableHead>
+            <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider text-center">Score</TableHead>
+            <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider">Status</TableHead>
+            <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider">Email</TableHead>
+            <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider text-right">Date</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {leads.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                <div className="flex flex-col items-center gap-2">
-                  <span className="text-4xl">📭</span>
-                  <p>No leads yet. Start a campaign to find prospects!</p>
+              <TableCell colSpan={6} className="text-center py-12 text-neutral-500">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl border border-white/[0.06] flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-neutral-600" />
+                  </div>
+                  <p className="text-sm font-mono">No leads yet. Start a campaign to find prospects.</p>
                 </div>
               </TableCell>
             </TableRow>
           ) : (
-            leads.map((lead) => (
-              <TableRow key={lead.id} className="hover:bg-muted/30 transition-colors">
-                <TableCell className="font-medium">
+            leads.map((lead, i) => (
+              <motion.tr
+                key={lead.id}
+                custom={i}
+                variants={rowVariants}
+                initial="hidden"
+                animate="visible"
+                className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
+              >
+                <TableCell className="font-medium text-white">
                   <div className="flex flex-col">
                     <span>{lead.businessName}</span>
                     {lead.campaign && (
-                      <span className="text-xs text-muted-foreground">
-                        {lead.campaign.niche} • {lead.campaign.location}
+                      <span className="text-xs text-neutral-600 font-mono">
+                        {lead.campaign.niche} / {lead.campaign.location}
                       </span>
                     )}
                   </div>
@@ -105,16 +125,16 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                     href={lead.websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 hover:underline transition-colors"
+                    className="text-neutral-400 hover:text-white transition-colors font-mono text-sm"
                   >
                     {truncateUrl(lead.websiteUrl)}
                   </a>
                 </TableCell>
                 <TableCell className="text-center">
-                  <span className={`font-bold text-lg ${getScoreColor(lead.auditScore)}`}>
+                  <span className={`font-bold text-lg font-mono ${getScoreStyle(lead.auditScore)}`}>
                     {lead.auditScore !== null && lead.auditScore !== undefined
                       ? `${lead.auditScore}/10`
-                      : '—'}
+                      : '\u2014'}
                   </span>
                 </TableCell>
                 <TableCell>
@@ -127,15 +147,15 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 </TableCell>
                 <TableCell>
                   {lead.email ? (
-                    <span className="text-sm text-muted-foreground">{lead.email}</span>
+                    <span className="text-sm text-neutral-400 font-mono">{lead.email}</span>
                   ) : (
-                    <span className="text-sm text-gray-600">—</span>
+                    <span className="text-sm text-neutral-700">\u2014</span>
                   )}
                 </TableCell>
-                <TableCell className="text-right text-sm text-muted-foreground">
+                <TableCell className="text-right text-sm text-neutral-500 font-mono">
                   {lead.sentAt ? formatDate(lead.sentAt) : formatDate(lead.createdAt)}
                 </TableCell>
-              </TableRow>
+              </motion.tr>
             ))
           )}
         </TableBody>

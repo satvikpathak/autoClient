@@ -1,64 +1,108 @@
+'use client';
+
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { ArrowRight, Search, Camera, Mail, BarChart3 } from 'lucide-react';
+import { pageVariants, fadeUp, scaleIn, fadeIn, buttonTap } from '@/lib/motion';
+
+const features = [
+  { icon: Search, label: 'Google Places Discovery' },
+  { icon: Camera, label: 'AI Visual Audit' },
+  { icon: Mail, label: 'Auto Email Outreach' },
+  { icon: BarChart3, label: 'Real-time Tracking' },
+];
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex flex-col">
+    <div className="min-h-screen bg-[#0a0a0a] relative overflow-hidden">
+      {/* Radial glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/[0.02] rounded-full blur-3xl" />
+
       {/* Hero Section */}
-      <main className="flex-1 flex items-center justify-center px-6">
-        <div className="text-center max-w-3xl mx-auto">
+      <main className="relative flex-1 flex items-center justify-center min-h-screen px-6">
+        <motion.div
+          variants={pageVariants}
+          initial="hidden"
+          animate="visible"
+          className="text-center max-w-2xl mx-auto"
+        >
           {/* Logo */}
-          <div className="mb-8 inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-2xl shadow-green-500/30">
-            <span className="text-4xl">⚡</span>
-          </div>
+          <motion.div
+            variants={scaleIn}
+            className="mb-10 inline-flex items-center justify-center w-16 h-16 rounded-2xl border border-white/10 bg-white/5"
+          >
+            <span className="text-2xl font-mono font-bold text-white">A</span>
+          </motion.div>
 
           {/* Title */}
-          <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-white via-green-200 to-emerald-400 bg-clip-text text-transparent leading-tight">
+          <motion.h1
+            variants={fadeUp}
+            className="text-6xl md:text-8xl font-bold mb-6 tracking-tight text-shimmer"
+          >
             AutoClient
-          </h1>
+          </motion.h1>
 
           {/* Subtitle */}
-          <p className="text-xl md:text-2xl text-gray-400 mb-4">
+          <motion.p
+            variants={fadeUp}
+            className="text-lg md:text-xl text-neutral-500 mb-4 font-mono"
+          >
             Zero-Touch Automated SDR
-          </p>
+          </motion.p>
 
           {/* Description */}
-          <p className="text-lg text-gray-500 mb-12 max-w-xl mx-auto">
+          <motion.p
+            variants={fadeUp}
+            className="text-base text-neutral-600 mb-14 max-w-md mx-auto leading-relaxed"
+          >
             Find businesses with outdated websites, audit them with AI,
             and send personalized cold emails — all on autopilot.
-          </p>
+          </motion.p>
 
           {/* CTA Button */}
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold text-lg rounded-xl transition-all duration-300 hover:shadow-xl hover:shadow-green-500/30 hover:-translate-y-0.5"
-          >
-            <span>🚀</span>
-            Launch Dashboard
-          </Link>
+          <motion.div variants={fadeUp}>
+            <motion.div
+              whileHover={{ scale: 1.04 }}
+              whileTap={buttonTap}
+            >
+              <Link
+                href="/dashboard"
+                className="group inline-flex items-center gap-3 px-8 py-4 bg-white text-black font-medium text-sm rounded-full transition-all duration-300 hover:bg-neutral-200"
+              >
+                Launch Dashboard
+                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </motion.div>
+          </motion.div>
 
           {/* Feature Pills */}
-          <div className="mt-16 flex flex-wrap justify-center gap-3">
-            {[
-              '🔍 Google Places Discovery',
-              '📸 AI Visual Audit',
-              '📧 Auto Email Outreach',
-              '📊 Real-time Tracking',
-            ].map((feature) => (
-              <span
-                key={feature}
-                className="px-4 py-2 bg-white/5 border border-white/10 rounded-full text-sm text-gray-400"
+          <motion.div
+            variants={fadeIn}
+            className="mt-20 flex flex-wrap justify-center gap-3"
+          >
+            {features.map((feature) => (
+              <motion.span
+                key={feature.label}
+                variants={fadeUp}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-white/[0.06] rounded-full text-xs text-neutral-500 font-mono"
               >
-                {feature}
-              </span>
+                <feature.icon className="w-3.5 h-3.5" />
+                {feature.label}
+              </motion.span>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center text-gray-600 text-sm">
-        <p>Built with Next.js, Gemini AI, and Playwright</p>
-      </footer>
+      <motion.footer
+        variants={fadeIn}
+        initial="hidden"
+        animate="visible"
+        className="absolute bottom-0 w-full py-6 text-center text-neutral-700 text-xs font-mono"
+      >
+        <p>Next.js / Gemini AI / Playwright</p>
+      </motion.footer>
     </div>
   );
 }

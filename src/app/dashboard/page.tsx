@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { CampaignForm } from '@/components/CampaignForm';
 import { TerminalLogs, LogEntry } from '@/components/TerminalLogs';
-import Link from 'next/link';
+import { Navbar } from '@/components/Navbar';
+import { Mail, SkipForward, AlertCircle } from 'lucide-react';
+import { pageVariants, fadeUp, slideInLeft, slideInRight } from '@/lib/motion';
 
 export default function DashboardPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -38,7 +41,6 @@ export default function DashboardPage() {
           return false;
         }
 
-        // Log each result
         for (const result of data.results || []) {
           if (result.status === 'EMAILED') {
             addLog('EMAIL', `${result.businessName} - ${result.message}`);
@@ -71,7 +73,6 @@ export default function DashboardPage() {
       addLog('SEARCH', `Searching for ${niche} businesses in ${location}...`);
 
       try {
-        // Create campaign and discover leads
         const response = await fetch('/api/campaign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -87,7 +88,7 @@ export default function DashboardPage() {
         }
 
         setCurrentCampaignId(data.campaign.id);
-        addLog('SUCCESS', `Found ${data.leadsCreated} businesses with websites!`);
+        addLog('SUCCESS', `Found ${data.leadsCreated} businesses with websites`);
 
         if (data.leadsCreated === 0) {
           addLog('INFO', 'No businesses found. Try a different niche or location.');
@@ -97,17 +98,15 @@ export default function DashboardPage() {
 
         addLog('AUDIT', 'Starting website audits...');
 
-        // Process batches until done
         let hasMore = true;
         while (hasMore) {
           hasMore = await processNextBatch(data.campaign.id, portfolioUrl);
-          // Small delay between batches
           if (hasMore) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
 
-        addLog('SUCCESS', '🎉 Campaign complete! Check the Results page for details.');
+        addLog('SUCCESS', 'Campaign complete. Check Results for details.');
       } catch (error) {
         addLog('ERROR', error instanceof Error ? error.message : 'Unknown error');
       } finally {
@@ -117,75 +116,75 @@ export default function DashboardPage() {
     [addLog, processNextBatch]
   );
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-      {/* Navigation */}
-      <nav className="border-b border-primary/20 bg-black/50 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚡</span>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
-              AutoClient
-            </h1>
-          </div>
-          <div className="flex gap-4">
-            <Link
-              href="/dashboard"
-              className="text-green-400 font-medium px-4 py-2 rounded-lg bg-green-500/10"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/results"
-              className="text-gray-400 hover:text-white font-medium px-4 py-2 rounded-lg hover:bg-white/5 transition-colors"
-            >
-              Results
-            </Link>
-          </div>
-        </div>
-      </nav>
+  const emailCount = logs.filter((l) => l.type === 'EMAIL').length;
+  const skipCount = logs.filter((l) => l.type === 'SKIP').length;
+  const errorCount = logs.filter((l) => l.type === 'ERROR').length;
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
-        <div className="grid lg:grid-cols-[400px_1fr] gap-8 h-[calc(100vh-180px)]">
-          {/* Left Panel - Form */}
-          <div className="space-y-6">
+  return (
+    <div className="min-h-screen bg-[#0a0a0a]">
+      <Navbar />
+
+      <motion.main
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+        className="max-w-6xl mx-auto px-6 py-8"
+      >
+        <motion.div variants={fadeUp} className="mb-8">
+          <h2 className="text-2xl font-bold text-white tracking-tight">Dashboard</h2>
+          <p className="text-sm text-neutral-500 mt-1 font-mono">Configure and launch campaigns</p>
+        </motion.div>
+
+        <div className="grid lg:grid-cols-[380px_1fr] gap-6 h-[calc(100vh-200px)]">
+          {/* Left Panel */}
+          <motion.div variants={slideInLeft} className="space-y-4">
             <CampaignForm onStart={handleStartCampaign} isProcessing={isProcessing} />
 
-            {/* Stats Card */}
-            {currentCampaignId && (
-              <div className="bg-card/30 backdrop-blur border border-primary/20 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                  Quick Stats
-                </h3>
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <p className="text-2xl font-bold text-green-400">
-                      {logs.filter((l) => l.type === 'EMAIL').length}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Emailed</p>
+            {/* Stats */}
+            <AnimatePresence>
+              {currentCampaignId && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                  className="border border-white/[0.06] rounded-xl p-4 bg-white/[0.02] overflow-hidden"
+                >
+                  <p className="text-xs font-mono text-neutral-500 mb-3 uppercase tracking-wider">Stats</p>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <Mail className="w-3 h-3 text-neutral-500" />
+                      </div>
+                      <p className="text-xl font-bold text-white font-mono">{emailCount}</p>
+                      <p className="text-[10px] text-neutral-600 font-mono">Emailed</p>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <SkipForward className="w-3 h-3 text-neutral-500" />
+                      </div>
+                      <p className="text-xl font-bold text-neutral-400 font-mono">{skipCount}</p>
+                      <p className="text-[10px] text-neutral-600 font-mono">Skipped</p>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <AlertCircle className="w-3 h-3 text-neutral-500" />
+                      </div>
+                      <p className="text-xl font-bold text-neutral-400 font-mono">{errorCount}</p>
+                      <p className="text-[10px] text-neutral-600 font-mono">Errors</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-2xl font-bold text-gray-400">
-                      {logs.filter((l) => l.type === 'SKIP').length}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Skipped</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-red-400">
-                      {logs.filter((l) => l.type === 'ERROR').length}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Errors</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
 
           {/* Right Panel - Terminal */}
-          <TerminalLogs logs={logs} isProcessing={isProcessing} />
+          <motion.div variants={slideInRight}>
+            <TerminalLogs logs={logs} isProcessing={isProcessing} />
+          </motion.div>
         </div>
-      </main>
+      </motion.main>
     </div>
   );
 }

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Navbar } from '@/components/Navbar';
 import { LeadsTable } from '@/components/LeadsTable';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+import { Loader2, RefreshCw, Mail, SkipForward, AlertTriangle, Star, Users } from 'lucide-react';
+import { pageVariants, fadeUp, cardHover, buttonTap } from '@/lib/motion';
 
 interface Lead {
   id: string;
@@ -29,6 +30,13 @@ interface Stats {
   avgScore: number;
 }
 
+const filters = [
+  { key: 'all', label: 'All' },
+  { key: 'EMAILED', label: 'Emailed' },
+  { key: 'SKIPPED', label: 'Skipped' },
+  { key: 'FAILED', label: 'Failed' },
+];
+
 export default function ResultsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [stats, setStats] = useState<Stats>({
@@ -45,11 +53,10 @@ export default function ResultsPage() {
     try {
       const response = await fetch('/api/leads');
       const data = await response.json();
-      
+
       if (response.ok) {
         setLeads(data.leads || []);
-        
-        // Calculate stats
+
         const allLeads = data.leads || [];
         const emailed = allLeads.filter((l: Lead) => l.status === 'EMAILED').length;
         const skipped = allLeads.filter((l: Lead) => l.status === 'SKIPPED').length;
@@ -57,7 +64,7 @@ export default function ResultsPage() {
         const scores = allLeads
           .filter((l: Lead) => l.auditScore !== null && l.auditScore !== undefined)
           .map((l: Lead) => l.auditScore as number);
-        const avgScore = scores.length > 0 
+        const avgScore = scores.length > 0
           ? Math.round((scores.reduce((a: number, b: number) => a + b, 0) / scores.length) * 10) / 10
           : 0;
 
@@ -80,148 +87,88 @@ export default function ResultsPage() {
     fetchLeads();
   }, []);
 
-  const filteredLeads = filter === 'all' 
-    ? leads 
+  const filteredLeads = filter === 'all'
+    ? leads
     : leads.filter((l) => l.status === filter);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
-      {/* Navigation */}
-      <nav className="border-b border-primary/20 bg-black/50 backdrop-blur-sm">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚡</span>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">
-              AutoClient
-            </h1>
-          </div>
-          <div className="flex gap-4">
-            <Link
-              href="/dashboard"
-              className="text-gray-400 hover:text-white font-medium px-4 py-2 rounded-lg hover:bg-white/5 transition-colors"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/results"
-              className="text-green-400 font-medium px-4 py-2 rounded-lg bg-green-500/10"
-            >
-              Results
-            </Link>
-          </div>
-        </div>
-      </nav>
+  const statCards = [
+    { label: 'Total Leads', value: stats.total, icon: Users },
+    { label: 'Emailed', value: stats.emailed, icon: Mail },
+    { label: 'Skipped', value: stats.skipped, icon: SkipForward },
+    { label: 'Failed', value: stats.failed, icon: AlertTriangle },
+    { label: 'Avg Score', value: `${stats.avgScore}/10`, icon: Star },
+  ];
 
-      {/* Main Content */}
-      <main className="container mx-auto px-6 py-8">
+  return (
+    <div className="min-h-screen bg-[#0a0a0a]">
+      <Navbar />
+
+      <motion.main
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+        className="max-w-6xl mx-auto px-6 py-8"
+      >
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          <Card className="bg-card/30 backdrop-blur border-primary/20">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Leads
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats.total}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-card/30 backdrop-blur border-green-500/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-green-400">
-                📧 Emailed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-green-400">{stats.emailed}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-card/30 backdrop-blur border-gray-500/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-400">
-                ⏭️ Skipped
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-gray-400">{stats.skipped}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-card/30 backdrop-blur border-red-500/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-red-400">
-                ❌ Failed
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-red-400">{stats.failed}</p>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-card/30 backdrop-blur border-yellow-500/30">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-yellow-400">
-                ⭐ Avg Score
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-yellow-400">{stats.avgScore}/10</p>
-            </CardContent>
-          </Card>
+          {statCards.map((stat) => (
+            <motion.div
+              key={stat.label}
+              variants={fadeUp}
+              whileHover={cardHover}
+              className="border border-white/[0.06] rounded-xl p-5 bg-white/[0.02]"
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <stat.icon className="w-3.5 h-3.5 text-neutral-500" />
+                <span className="text-xs font-mono text-neutral-500 uppercase tracking-wider">
+                  {stat.label}
+                </span>
+              </div>
+              <p className="text-3xl font-bold text-white font-mono">{stat.value}</p>
+            </motion.div>
+          ))}
         </div>
 
-        {/* Filter Buttons */}
-        <div className="flex gap-2 mb-6">
-          <Button
-            variant={filter === 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('all')}
-          >
-            All
-          </Button>
-          <Button
-            variant={filter === 'EMAILED' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('EMAILED')}
-            className={filter === 'EMAILED' ? 'bg-green-600' : ''}
-          >
-            Emailed
-          </Button>
-          <Button
-            variant={filter === 'SKIPPED' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('SKIPPED')}
-          >
-            Skipped
-          </Button>
-          <Button
-            variant={filter === 'FAILED' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter('FAILED')}
-            className={filter === 'FAILED' ? 'bg-red-600' : ''}
-          >
-            Failed
-          </Button>
+        {/* Filter Pills + Refresh */}
+        <motion.div variants={fadeUp} className="flex items-center gap-2 mb-6">
+          {filters.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`text-xs font-medium px-4 py-2 rounded-full transition-all ${
+                filter === f.key
+                  ? 'bg-white text-black'
+                  : 'border border-white/[0.08] text-neutral-500 hover:text-white hover:border-white/20'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
           <div className="flex-1" />
-          <Button variant="ghost" size="sm" onClick={fetchLeads}>
-            🔄 Refresh
-          </Button>
-        </div>
+          <motion.button
+            onClick={fetchLeads}
+            whileTap={buttonTap}
+            className="inline-flex items-center gap-2 text-xs font-mono text-neutral-500 hover:text-white px-4 py-2 rounded-full border border-white/[0.08] hover:border-white/20 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </motion.button>
+        </motion.div>
 
         {/* Leads Table */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center">
-              <div className="animate-spin text-4xl mb-4">⚡</div>
-              <p className="text-muted-foreground">Loading leads...</p>
+        <motion.div variants={fadeUp}>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-neutral-500 mx-auto mb-4" />
+                <p className="text-neutral-500 text-sm font-mono">Loading leads...</p>
+              </div>
             </div>
-          </div>
-        ) : (
-          <LeadsTable leads={filteredLeads} />
-        )}
-      </main>
+          ) : (
+            <LeadsTable leads={filteredLeads} />
+          )}
+        </motion.div>
+      </motion.main>
     </div>
   );
 }
