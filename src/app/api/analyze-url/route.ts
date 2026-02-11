@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { captureWebsite } from '@/lib/playwright';
 import { analyzeWebsite, AuditResult } from '@/lib/gemini';
-import { crawlForEmails } from '@/lib/firecrawl';
+import { crawlSiteData } from '@/lib/firecrawl';
 
 export interface AnalyzeUrlResponse {
   success: boolean;
@@ -39,13 +39,13 @@ export async function POST(request: NextRequest) {
     console.log(`[Analyze] Starting parallel analysis: ${validUrl}`);
 
     // Run Playwright capture and Firecrawl in PARALLEL
-    const [capture, firecrawlEmails] = await Promise.all([
+    const [capture, { emails: firecrawlEmails, siteContent }] = await Promise.all([
       captureWebsite(validUrl),
-      crawlForEmails(validUrl),
+      crawlSiteData(validUrl),
     ]);
 
     console.log(`[Analyze] Playwright found ${capture.emails.length} emails`);
-    console.log(`[Analyze] Firecrawl found ${firecrawlEmails.length} emails`);
+    console.log(`[Analyze] Firecrawl found ${firecrawlEmails.length} emails, ${siteContent.length} chars of site content`);
 
     // Merge and dedupe emails from both sources
     const allEmails = [...new Set([...capture.emails, ...firecrawlEmails])];
@@ -53,8 +53,8 @@ export async function POST(request: NextRequest) {
 
     console.log(`[Analyze] Analyzing with Gemini AI...`);
 
-    // Analyze with Gemini
-    const audit = await analyzeWebsite(capture.screenshotBase64, capture.textContent);
+    // Analyze with Gemini (screenshot + text + firecrawl site markdown)
+    const audit = await analyzeWebsite(capture.screenshotBase64, capture.textContent, siteContent);
 
     console.log(`[Analyze] Complete! Score: ${audit.score}/10`);
 

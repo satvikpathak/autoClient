@@ -26,36 +26,89 @@ export default function DashboardPage() {
   }, []);
 
   const processNextBatch = useCallback(
-    async (campaignId: string, portfolioUrl: string) => {
+    async (campaignId: string) => {
       try {
         const response = await fetch('/api/process-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ campaignId, portfolioUrl, batchSize: 5 }),
+          body: JSON.stringify({ campaignId, batchSize: 5 }),
         });
 
-        const data = await response.json();
-
         if (!response.ok) {
+          const data = await response.json();
           addLog('ERROR', data.error || 'Failed to process batch');
           return false;
         }
 
-        for (const result of data.results || []) {
-          if (result.status === 'EMAILED') {
-            addLog('EMAIL', `${result.businessName} - ${result.message}`);
-          } else if (result.status === 'SKIPPED') {
-            addLog('SKIP', `${result.businessName} - ${result.message}`);
-          } else {
-            addLog('ERROR', `${result.businessName} - ${result.message}`);
+        const reader = response.body?.getReader();
+        if (!reader) {
+          addLog('ERROR', 'No response stream');
+          return false;
+        }
+
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let hasMore = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Split by double newline (SSE event boundary)
+          const parts = buffer.split('\n\n');
+          // Keep the last part as it may be incomplete
+          buffer = parts.pop() || '';
+
+          for (const part of parts) {
+            if (!part.trim()) continue;
+
+            const lines = part.split('\n');
+            let eventType = '';
+            let eventData = '';
+
+            for (const line of lines) {
+              if (line.startsWith('event: ')) {
+                eventType = line.slice(7);
+              } else if (line.startsWith('data: ')) {
+                eventData = line.slice(6);
+              }
+            }
+
+            if (!eventType || !eventData) continue;
+
+            try {
+              const data = JSON.parse(eventData);
+
+              if (eventType === 'log') {
+                const msg: string = data.message || '';
+                if (msg.includes('[Firecrawl]')) {
+                  addLog('CRAWL', msg);
+                } else {
+                  addLog('INFO', msg);
+                }
+              } else if (eventType === 'result') {
+                if (data.status === 'EMAILED') {
+                  addLog('EMAIL', `${data.businessName} - ${data.message}`);
+                } else if (data.status === 'SKIPPED') {
+                  addLog('SKIP', `${data.businessName} - ${data.message}`);
+                } else {
+                  addLog('ERROR', `${data.businessName} - ${data.message}`);
+                }
+              } else if (eventType === 'done') {
+                if (data.remaining > 0) {
+                  addLog('INFO', `${data.remaining} leads remaining...`);
+                }
+                hasMore = !data.completed;
+              }
+            } catch {
+              // Ignore malformed JSON
+            }
           }
         }
 
-        if (data.remaining > 0) {
-          addLog('INFO', `${data.remaining} leads remaining...`);
-        }
-
-        return !data.completed;
+        return hasMore;
       } catch (error) {
         addLog('ERROR', error instanceof Error ? error.message : 'Network error');
         return false;
@@ -65,7 +118,7 @@ export default function DashboardPage() {
   );
 
   const handleStartCampaign = useCallback(
-    async ({ niche, location, portfolioUrl }: { niche: string; location: string; portfolioUrl: string }) => {
+    async ({ niche, location }: { niche: string; location: string }) => {
       setIsProcessing(true);
       setLogs([]);
 
@@ -100,7 +153,7 @@ export default function DashboardPage() {
 
         let hasMore = true;
         while (hasMore) {
-          hasMore = await processNextBatch(data.campaign.id, portfolioUrl);
+          hasMore = await processNextBatch(data.campaign.id);
           if (hasMore) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }

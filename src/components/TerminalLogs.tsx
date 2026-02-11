@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 export interface LogEntry {
   id: string;
-  type: 'SEARCH' | 'AUDIT' | 'EMAIL' | 'SKIP' | 'ERROR' | 'INFO' | 'SUCCESS';
+  type: 'SEARCH' | 'AUDIT' | 'EMAIL' | 'SKIP' | 'ERROR' | 'INFO' | 'SUCCESS' | 'CRAWL';
   message: string;
   timestamp: Date;
 }
@@ -24,6 +24,7 @@ const LOG_PREFIXES: Record<LogEntry['type'], string> = {
   ERROR: 'ERR!',
   INFO: 'INFO',
   SUCCESS: ' OK ',
+  CRAWL: 'CRWL',
 };
 
 export function TerminalLogs({ logs, isProcessing }: TerminalLogsProps) {

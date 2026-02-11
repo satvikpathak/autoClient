@@ -62,7 +62,7 @@ export const slideInRight: Variants = {
 
 export const cardHover = {
   scale: 1.02,
-  transition: { duration: 0.2, ease: 'easeOut' },
+  transition: { duration: 0.2, ease: 'easeOut' as const },
 };
 
 export const buttonTap = {

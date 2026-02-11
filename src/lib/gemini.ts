@@ -10,16 +10,21 @@ export interface AuditResult {
   hook: string;
 }
 
-const SYSTEM_PROMPT = `You are a ruthless but constructive UI/UX Auditor. Analyze this landing page screenshot and text.
+const SYSTEM_PROMPT = `You are a ruthless but constructive website auditor. Analyze this website using the screenshot, text content, and (when available) the structured site markdown data.
 
-Your Goal: Identify why this site is losing customers and propose a fix to sell a redesign service.
+Your Goal: Identify why this site is losing customers and propose fixes to sell a redesign service.
 
-Be specific and actionable. Focus on:
-- Visual design (colors, typography, spacing, imagery)
-- User experience (navigation, CTAs, mobile responsiveness)
-- Trust signals (testimonials, certifications, contact info)
-- Performance indicators (load time, modern tech)
-- Content quality (copywriting, value proposition)
+Be specific, actionable, and reference concrete elements you observe. Cover ALL of the following areas:
+
+**Visual Design**: Layout structure, color palette & contrast, typography choices, whitespace/spacing, imagery quality, responsive design signals, visual hierarchy, brand consistency.
+
+**Functionality & UX**: Navigation clarity & depth, forms and input fields, CTAs (placement, copy, contrast), interactive elements, broken patterns, mobile-friendliness indicators, page structure from headings/links.
+
+**Performance & Tech**: Tech stack signals (frameworks, libraries), modern vs outdated practices, render-blocking hints, image optimization, code quality signals.
+
+**Content & SEO**: Copy quality & tone, value proposition clarity, SEO signals (heading structure, meta patterns, internal linking), trust signals (testimonials, certifications, social proof), contact accessibility.
+
+**Accessibility**: Color contrast issues, heading hierarchy, alt text presence, keyboard navigation hints, ARIA patterns, readability.
 
 Output ONLY valid JSON in this exact format:
 {
@@ -32,16 +37,26 @@ Output ONLY valid JSON in this exact format:
 
 export async function analyzeWebsite(
   screenshotBase64: string,
-  textContent: string
+  textContent: string,
+  siteMarkdown?: string
 ): Promise<AuditResult> {
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-  const prompt = `${SYSTEM_PROMPT}
+  let prompt = `${SYSTEM_PROMPT}
 
 Website Text Content:
-${textContent.slice(0, 8000)}
+${textContent.slice(0, 8000)}`;
 
-Analyze the screenshot and text above. Return ONLY the JSON object, no markdown or explanation.`;
+  if (siteMarkdown) {
+    prompt += `
+
+--- Structured Site Data (scraped markdown with headings, links, layout) ---
+${siteMarkdown.slice(0, 20000)}`;
+  }
+
+  prompt += `
+
+Analyze the screenshot, text, and structured data above. Return ONLY the JSON object, no markdown or explanation.`;
 
   const result = await model.generateContent([
     {

@@ -54,14 +54,15 @@ export async function captureWebsite(url: string): Promise<WebsiteCapture> {
   const page: Page = await context.newPage();
   
   try {
-    // Navigate with timeout
+    // Navigate - use domcontentloaded then wait briefly for rendering
+    // (networkidle hangs on sites with analytics/ads/websockets)
     await page.goto(url, {
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded',
       timeout: 30000,
     });
 
-    // Wait a bit for lazy-loaded content
-    await page.waitForTimeout(2000);
+    // Give the page time to render lazy-loaded content
+    await page.waitForTimeout(3000);
 
     // Take screenshot
     const screenshot = await page.screenshot({
@@ -86,7 +87,7 @@ export async function captureWebsite(url: string): Promise<WebsiteCapture> {
     if (contactLink) {
       try {
         await contactLink.click();
-        await page.waitForLoadState('networkidle', { timeout: 10000 });
+        await page.waitForLoadState('domcontentloaded', { timeout: 10000 });
         const contactText = await page.evaluate(() => document.body?.innerText || '');
         allText += ' ' + contactText;
       } catch {

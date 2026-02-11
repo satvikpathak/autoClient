@@ -26,7 +26,6 @@ export async function POST(request: NextRequest) {
       businessName: businessName || 'Business Owner',
       websiteUrl,
       auditResult,
-      portfolioUrl: process.env.DEFAULT_PORTFOLIO_URL || 'https://yourportfolio.com',
     });
 
     if (!result.success) {
