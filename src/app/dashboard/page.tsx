@@ -1,17 +1,19 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CampaignForm } from '@/components/CampaignForm';
 import { TerminalLogs, LogEntry } from '@/components/TerminalLogs';
 import { Navbar } from '@/components/Navbar';
-import { Mail, SkipForward, AlertCircle } from 'lucide-react';
-import { pageVariants, fadeUp, slideInLeft, slideInRight } from '@/lib/motion';
+import { Mail, SkipForward, AlertCircle, MapPin, Pause } from 'lucide-react';
+import { pageVariants, fadeUp, slideInLeft, slideInRight, buttonTap } from '@/lib/motion';
 
 export default function DashboardPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
+  const [noWebsiteCount, setNoWebsiteCount] = useState(0);
+  const pauseRef = useRef(false);
 
   const addLog = useCallback((type: LogEntry['type'], message: string) => {
     setLogs((prev) => [
@@ -121,6 +123,7 @@ export default function DashboardPage() {
     async ({ niche, location }: { niche: string; location: string }) => {
       setIsProcessing(true);
       setLogs([]);
+      pauseRef.current = false;
 
       addLog('INFO', `Starting campaign: ${niche} in ${location}`);
       addLog('SEARCH', `Searching for ${niche} businesses in ${location}...`);
@@ -141,7 +144,14 @@ export default function DashboardPage() {
         }
 
         setCurrentCampaignId(data.campaign.id);
-        addLog('SUCCESS', `Found ${data.leadsCreated} businesses with websites`);
+        setNoWebsiteCount(data.noWebsiteLeads || 0);
+        addLog('SUCCESS', `Found ${data.websiteLeads || data.leadsCreated} businesses with websites`);
+        if (data.noWebsiteLeads > 0) {
+          addLog('INFO', `Found ${data.noWebsiteLeads} businesses without websites`);
+        }
+        if (data.duplicatesSkipped > 0) {
+          addLog('INFO', `Skipped ${data.duplicatesSkipped} duplicate businesses`);
+        }
 
         if (data.leadsCreated === 0) {
           addLog('INFO', 'No businesses found. Try a different niche or location.');
@@ -152,14 +162,24 @@ export default function DashboardPage() {
         addLog('AUDIT', 'Starting website audits...');
 
         let hasMore = true;
-        while (hasMore) {
+        while (hasMore && !pauseRef.current) {
           hasMore = await processNextBatch(data.campaign.id);
-          if (hasMore) {
+          if (hasMore && !pauseRef.current) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
 
-        addLog('SUCCESS', 'Campaign complete. Check Results for details.');
+        if (pauseRef.current && hasMore) {
+          // Set campaign status to PAUSED
+          await fetch(`/api/campaign/${data.campaign.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'PAUSED' }),
+          });
+          addLog('INFO', 'Campaign paused. Remaining leads will not be processed.');
+        } else {
+          addLog('SUCCESS', 'Campaign complete. Check Results for details.');
+        }
       } catch (error) {
         addLog('ERROR', error instanceof Error ? error.message : 'Unknown error');
       } finally {
@@ -193,6 +213,20 @@ export default function DashboardPage() {
           <motion.div variants={slideInLeft} className="space-y-4">
             <CampaignForm onStart={handleStartCampaign} isProcessing={isProcessing} />
 
+            {/* Pause Button */}
+            {isProcessing && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileTap={buttonTap}
+                onClick={() => { pauseRef.current = true; }}
+                className="w-full inline-flex items-center justify-center gap-2 text-sm font-mono text-red-400 px-4 py-3 rounded-xl border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/5 transition-colors"
+              >
+                <Pause className="w-4 h-4" />
+                Pause Campaign
+              </motion.button>
+            )}
+
             {/* Stats */}
             <AnimatePresence>
               {currentCampaignId && (
@@ -204,7 +238,7 @@ export default function DashboardPage() {
                   className="border border-white/[0.06] rounded-xl p-4 bg-white/[0.02] overflow-hidden"
                 >
                   <p className="text-xs font-mono text-neutral-500 mb-3 uppercase tracking-wider">Stats</p>
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  <div className="grid grid-cols-4 gap-4 text-center">
                     <div>
                       <div className="flex items-center justify-center gap-1.5 mb-1">
                         <Mail className="w-3 h-3 text-neutral-500" />
@@ -225,6 +259,13 @@ export default function DashboardPage() {
                       </div>
                       <p className="text-xl font-bold text-neutral-400 font-mono">{errorCount}</p>
                       <p className="text-[10px] text-neutral-600 font-mono">Errors</p>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-center gap-1.5 mb-1">
+                        <MapPin className="w-3 h-3 text-amber-500" />
+                      </div>
+                      <p className="text-xl font-bold text-amber-400 font-mono">{noWebsiteCount}</p>
+                      <p className="text-[10px] text-neutral-600 font-mono">No Website</p>
                     </div>
                   </div>
                 </motion.div>

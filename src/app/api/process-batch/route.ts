@@ -28,34 +28,45 @@ async function processLead(
       data: { status: 'SCRAPING' },
     });
 
-    emit('log', { message: `[${lead.businessName}] Capturing screenshot...` });
+    // Step 1: Crawl for emails first — if none found, skip everything else
     emit('log', { message: `[${lead.businessName}] Crawling for emails & content...` });
 
-    // Capture website + crawl site data in PARALLEL
-    // Use allSettled so a DNS/network error in Playwright doesn't orphan
-    // the still-running Firecrawl call (which would emit logs after the stream closes)
-    const [captureResult, crawlResult] = await Promise.allSettled([
-      captureWebsite(lead.websiteUrl),
-      crawlSiteData(lead.websiteUrl, (msg) => {
+    const { emails: firecrawlEmails, siteContent } = await crawlSiteData(
+      lead.websiteUrl,
+      (msg) => {
         emit('log', { message: `[${lead.businessName}] ${msg}` });
-      }),
-    ]);
+      },
+    );
 
-    if (captureResult.status === 'rejected') {
-      throw captureResult.reason;
+    if (firecrawlEmails.length === 0) {
+      // No email found — skip screenshot & analysis entirely
+      await prisma.lead.update({
+        where: { id: lead.id },
+        data: { status: 'SKIPPED' },
+      });
+
+      const result: ProcessResult = {
+        leadId: lead.id,
+        businessName: lead.businessName,
+        status: 'SKIPPED',
+        message: 'No contact email found — skipped',
+      };
+      emit('result', result);
+      return result;
     }
 
-    const capture = captureResult.value;
-    const { emails: firecrawlEmails, siteContent } = crawlResult.status === 'fulfilled'
-      ? crawlResult.value
-      : { emails: [], siteContent: '' };
+    const primaryEmail = firecrawlEmails[0];
+    emit('log', { message: `[${lead.businessName}] Found ${firecrawlEmails.length} emails` });
+
+    // Step 2: Capture screenshot now that we know we have an email
+    emit('log', { message: `[${lead.businessName}] Capturing screenshot...` });
+    const capture = await captureWebsite(lead.websiteUrl);
 
     // Merge and dedupe emails from both Playwright and Firecrawl
     const allEmails = [...new Set([...capture.emails, ...firecrawlEmails])];
+    const bestEmail = allEmails[0];
 
-    emit('log', { message: `[${lead.businessName}] Found ${allEmails.length} emails` });
-
-    // Update status to ANALYZING
+    // Step 3: Analyze with Gemini
     await prisma.lead.update({
       where: { id: lead.id },
       data: { status: 'ANALYZING' },
@@ -63,15 +74,11 @@ async function processLead(
 
     emit('log', { message: `[${lead.businessName}] Analyzing with Gemini...` });
 
-    // Analyze with Gemini (screenshot + text + firecrawl site markdown)
     const auditResult = await analyzeWebsite(
       capture.screenshotBase64,
       capture.textContent,
       siteContent
     );
-
-    // Check if we should send email (score < 7 and has email)
-    const primaryEmail = allEmails[0];
 
     if (auditResult.score >= 7) {
       // Website is good enough, skip
@@ -81,7 +88,7 @@ async function processLead(
           status: 'SKIPPED',
           auditScore: auditResult.score,
           auditSummary: JSON.stringify(auditResult),
-          email: primaryEmail,
+          email: bestEmail,
         },
       });
 
@@ -96,34 +103,12 @@ async function processLead(
       return result;
     }
 
-    if (!primaryEmail) {
-      // No email found, skip
-      await prisma.lead.update({
-        where: { id: lead.id },
-        data: {
-          status: 'SKIPPED',
-          auditScore: auditResult.score,
-          auditSummary: JSON.stringify(auditResult),
-        },
-      });
-
-      const result: ProcessResult = {
-        leadId: lead.id,
-        businessName: lead.businessName,
-        status: 'SKIPPED',
-        score: auditResult.score,
-        message: `Score ${auditResult.score}/10 - No contact email found`,
-      };
-      emit('result', result);
-      return result;
-    }
-
-    // Send email
-    emit('log', { message: `[${lead.businessName}] Sending email to ${primaryEmail}...` });
+    // Step 4: Send email
+    emit('log', { message: `[${lead.businessName}] Sending email to ${bestEmail}...` });
 
     const emailResult = await sendProposalEmail({
       businessName: lead.businessName,
-      email: primaryEmail,
+      email: bestEmail,
       websiteUrl: lead.websiteUrl,
       auditResult,
     });
@@ -135,7 +120,7 @@ async function processLead(
           status: 'FAILED',
           auditScore: auditResult.score,
           auditSummary: JSON.stringify(auditResult),
-          email: primaryEmail,
+          email: bestEmail,
           errorLog: emailResult.error,
         },
       });
@@ -158,7 +143,7 @@ async function processLead(
         status: 'EMAILED',
         auditScore: auditResult.score,
         auditSummary: JSON.stringify(auditResult),
-        email: primaryEmail,
+        email: bestEmail,
         sentAt: new Date(),
       },
     });
@@ -168,7 +153,7 @@ async function processLead(
       businessName: lead.businessName,
       status: 'EMAILED',
       score: auditResult.score,
-      message: `Score ${auditResult.score}/10 - Sent to ${primaryEmail}`,
+      message: `Score ${auditResult.score}/10 - Sent to ${bestEmail}`,
     };
     emit('result', result);
     return result;
@@ -223,6 +208,18 @@ export async function POST(request: NextRequest) {
       }
 
       try {
+        // Check if campaign is paused before processing
+        const campaign = await prisma.campaign.findUnique({
+          where: { id: campaignId },
+          select: { status: true },
+        });
+
+        if (campaign?.status === 'PAUSED') {
+          emit('done', { completed: false, paused: true, remaining: 0 });
+          close();
+          return;
+        }
+
         // Fetch the next batch of DISCOVERED leads
         const leads = await prisma.lead.findMany({
           where: {
@@ -252,8 +249,8 @@ export async function POST(request: NextRequest) {
 
         // Process leads with concurrency limit
         await Promise.all(
-          leads.map((lead: { id: string; businessName: string; websiteUrl: string }) =>
-            limit(() => processLead(lead, emit))
+          leads.map((lead) =>
+            limit(() => processLead({ ...lead, websiteUrl: lead.websiteUrl! }, emit))
           )
         );
 

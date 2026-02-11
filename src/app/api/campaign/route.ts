@@ -49,20 +49,57 @@ export async function POST(request: NextRequest) {
     // Search for businesses using Google Places API
     const businesses = await searchBusinesses(niche, location);
 
-    // Create leads for each business found
-    const leads = await prisma.lead.createMany({
-      data: businesses.map(business => ({
+    // Deduplicate: find businesses already in the DB by placeId
+    const allPlaceIds = businesses.map(b => b.placeId).filter(Boolean);
+    const existingPlaceIds = new Set(
+      (await prisma.lead.findMany({
+        where: { placeId: { in: allPlaceIds } },
+        select: { placeId: true },
+      })).map(l => l.placeId)
+    );
+
+    const newBusinesses = businesses.filter(b => !existingPlaceIds.has(b.placeId));
+    const duplicatesSkipped = businesses.length - newBusinesses.length;
+
+    if (duplicatesSkipped > 0) {
+      console.log(`Skipped ${duplicatesSkipped} duplicate businesses`);
+    }
+
+    // Split into businesses with and without websites
+    const withWebsite = newBusinesses.filter(b => b.hasWebsite);
+    const withoutWebsite = newBusinesses.filter(b => !b.hasWebsite);
+
+    // Create leads for businesses with websites
+    const websiteLeads = await prisma.lead.createMany({
+      data: withWebsite.map(business => ({
         campaignId: campaign.id,
         businessName: business.name,
+        placeId: business.placeId,
         websiteUrl: business.website,
-        status: 'DISCOVERED',
+        status: 'DISCOVERED' as const,
+      })),
+    });
+
+    // Create leads for businesses without websites
+    const noWebsiteLeads = await prisma.lead.createMany({
+      data: withoutWebsite.map(business => ({
+        campaignId: campaign.id,
+        businessName: business.name,
+        placeId: business.placeId,
+        websiteUrl: null,
+        phone: business.phone || null,
+        googleMapsUrl: `https://www.google.com/maps/place/?q=place_id:${business.placeId}`,
+        status: 'NO_WEBSITE' as const,
       })),
     });
 
     return NextResponse.json({
       campaign,
-      leadsCreated: leads.count,
-      message: `Campaign created with ${leads.count} leads discovered`,
+      leadsCreated: websiteLeads.count + noWebsiteLeads.count,
+      websiteLeads: websiteLeads.count,
+      noWebsiteLeads: noWebsiteLeads.count,
+      duplicatesSkipped,
+      message: `Campaign created with ${websiteLeads.count} website leads and ${noWebsiteLeads.count} no-website leads`,
     });
   } catch (error) {
     console.error('Error creating campaign:', error);
