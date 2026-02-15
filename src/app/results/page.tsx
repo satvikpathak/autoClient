@@ -188,30 +188,36 @@ export default function ResultsPage() {
         </motion.div>
 
         {/* Pagination Controls */}
-        {!isLoading && pagination.totalPages > 1 && (
+        {!isLoading && leads.length > 0 && (
           <motion.div
             variants={fadeUp}
-            className="flex items-center justify-center gap-4 mt-6"
+            className="flex items-center justify-between mt-6 px-1"
           >
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={!pagination.hasPrev}
-              className="inline-flex items-center gap-1.5 text-xs font-mono px-4 py-2 rounded-full border border-white/[0.08] text-neutral-500 hover:text-white hover:border-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-neutral-500 disabled:hover:border-white/[0.08]"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-              Previous
-            </button>
-            <span className="text-xs font-mono text-neutral-500">
-              Page {pagination.page} of {pagination.totalPages} ({pagination.totalCount} total leads)
+            <span className="text-xs font-mono text-neutral-600">
+              {Math.min((pagination.page - 1) * pagination.pageSize + 1, pagination.totalCount)}
+              &ndash;
+              {Math.min(pagination.page * pagination.pageSize, pagination.totalCount)}
+              {' '}of {pagination.totalCount}
             </span>
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={!pagination.hasNext}
-              className="inline-flex items-center gap-1.5 text-xs font-mono px-4 py-2 rounded-full border border-white/[0.08] text-neutral-500 hover:text-white hover:border-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-neutral-500 disabled:hover:border-white/[0.08]"
-            >
-              Next
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={!pagination.hasPrev}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/[0.08] text-neutral-500 hover:text-white hover:border-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-neutral-500 disabled:hover:border-white/[0.08]"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs font-mono text-neutral-500 min-w-[80px] text-center">
+                {pagination.page} / {pagination.totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => p + 1)}
+                disabled={!pagination.hasNext}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/[0.08] text-neutral-500 hover:text-white hover:border-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-neutral-500 disabled:hover:border-white/[0.08]"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </motion.div>
         )}
       </motion.main>

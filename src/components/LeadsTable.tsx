@@ -19,7 +19,7 @@ function buildWhatsAppUrl(phone: string, businessName: string): string {
     digits = '1' + digits;
   }
   const message = `Hi! I came across ${businessName} and noticed you don't have a website yet. I build modern websites for local businesses — would you be interested in a free mockup?`;
-  return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+  return `https://api.whatsapp.com/send?phone=${digits}&text=${encodeURIComponent(message)}`;
 }
 
 interface Lead {
@@ -89,11 +89,11 @@ export function LeadsTable({ leads }: LeadsTableProps) {
   };
 
   return (
-    <div className="rounded-xl border border-white/[0.06] overflow-hidden">
-      <Table>
+    <div className="rounded-xl border border-white/[0.06] overflow-x-auto table-scroll">
+      <Table className="min-w-[800px]">
         <TableHeader>
           <TableRow className="bg-white/[0.02] hover:bg-white/[0.02] border-b border-white/[0.06]">
-            <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider">Business</TableHead>
+            <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider max-w-[180px]">Business</TableHead>
             <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider">Website</TableHead>
             <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider text-center">Score</TableHead>
             <TableHead className="font-semibold text-neutral-400 text-xs font-mono uppercase tracking-wider">Status</TableHead>
@@ -123,11 +123,11 @@ export function LeadsTable({ leads }: LeadsTableProps) {
                 animate="visible"
                 className="border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors"
               >
-                <TableCell className="font-medium text-white">
+                <TableCell className="font-medium text-white max-w-[180px]">
                   <div className="flex flex-col">
-                    <span>{lead.businessName}</span>
+                    <span className="truncate text-sm">{lead.businessName}</span>
                     {lead.campaign && (
-                      <span className="text-xs text-neutral-600 font-mono">
+                      <span className="text-xs text-neutral-600 font-mono truncate">
                         {lead.campaign.niche} / {lead.campaign.location}
                       </span>
                     )}
